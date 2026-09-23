@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>เครื่องมือคำนวณ CFO — ISO 14064-1 (เปล่าเริ่มต้น, หลาย Case Study)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Thai:wght@500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#f5f3ee;
+    --surface:#ffffff;
+    --surface-2:#eef0e9;
+    --text:#1c2420;
+    --muted:#5b6660;
+    --border:#d9dccf;
+    --s1:#2f6f4e;
+    --s1-bg:#e6efe6;
+    --s2:#26618a;
+    --s2-bg:#e3ecf1;
+    --s3:#9a6a2c;
+    --s3-bg:#f2ecdf;
+    --warn:#b4531f;
+    --warn-bg:#fbeadf;
+    --focus:#1c2420;
+    --shadow: 0 1px 2px rgba(20,25,20,.06);
+  }
+  :root:not([data-theme="light"]) {
+    @media (prefers-color-scheme: dark) {
+      --bg:#141815; --surface:#1c211d; --surface-2:#222820; --text:#eef1ea; --muted:#a8b3aa;
+      --border:#33392f; --s1:#7bc79a; --s1-bg:#1c2c22; --s2:#7fb8dd; --s2-bg:#182530;
+      --s3:#d9ad6e; --s3-bg:#2a2418; --warn:#e69a6c; --warn-bg:#332218; --focus:#eef1ea;
+      --shadow: 0 1px 2px rgba(0,0,0,.4);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#141815; --surface:#1c211d; --surface-2:#222820; --text:#eef1ea; --muted:#a8b3aa;
+    --border:#33392f; --s1:#7bc79a; --s1-bg:#1c2c22; --s2:#7fb8dd; --s2-bg:#182530;
+    --s3:#d9ad6e; --s3-bg:#2a2418; --warn:#e69a6c; --warn-bg:#332218; --focus:#eef1ea;
+    --shadow: 0 1px 2px rgba(0,0,0,.4);
+  }
+
+  *{box-sizing:border-box;}
+  html{ scroll-padding-top: calc(96px + env(safe-area-inset-top, 0px)); }
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:'Noto Sans Thai','Sarabun',sans-serif; line-height:1.55;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  h1,h2,h3{ font-family:'Noto Serif Thai','Sarabun',serif; font-weight:600; line-height:1.3; margin:0 0 .4em 0; }
+  .wrap{max-width:960px; margin:0 auto; padding:0 20px 64px;}
+
+  header.page-head{ padding: 26px 20px 20px; border-bottom:1px solid var(--border); }
+  header.page-head .kicker{ color:var(--muted); font-size:.9rem; margin-bottom:6px; }
+  header.page-head h1{ font-size:1.4rem; max-width:680px; }
+  header.page-head .sub{ color:var(--muted); max-width:680px; font-size:.92rem; }
+
+  /* ---------- Case study bar ---------- */
+  .case-bar{
+    position:sticky; top:env(safe-area-inset-top, 0px); z-index:8;
+    background:var(--surface); border-bottom:1px solid var(--border);
+    padding:10px 20px;
+  }
+  .case-bar-row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .case-bar-row label{ font-size:.85rem; color:var(--muted); }
+  select#caseSelect{
+    padding:7px 10px; border:1px solid var(--border); border-radius:7px;
+    background:var(--bg); color:var(--text); font:inherit; font-size:.86rem; min-width:160px;
+  }
+  button.case-btn{
+    background:none; border:1px solid var(--border); color:var(--text);
+    padding:7px 12px; border-radius:7px; font:inherit; font-size:.8rem; cursor:pointer;
+  }
+  button.case-btn:hover{ background:var(--surface-2); }
+  button.case-btn.danger{ color:var(--warn); border-color:var(--warn); }
+  button.case-btn.danger:hover{ background:var(--warn-bg); }
+  .case-note{ margin:6px 0 0; font-size:.74rem; color:var(--muted); }
+  .export-row{ display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+  button.export-btn{
+    background:var(--s1); color:#fff; border:none;
+    padding:7px 13px; border-radius:7px; font:inherit; font-size:.8rem; cursor:pointer;
+    display:inline-flex; align-items:center; gap:6px;
+  }
+  button.export-btn.secondary{ background:none; border:1px solid var(--s1); color:var(--s1); }
+  button.export-btn:disabled{ opacity:.6; cursor:default; }
+  button.export-btn:hover:not(:disabled){ filter:brightness(1.08); }
+
+  /* ---------- Sticky summary ---------- */
+  .summary-bar{
+    position:sticky; top: calc(env(safe-area-inset-top, 0px) + 54px); z-index:7;
+    background:var(--bg); border-bottom:1px solid var(--border);
+    padding:10px 20px; display:flex; gap:10px; overflow-x:auto;
+  }
+  .summary-bar .chip{
+    flex:0 0 auto; background:var(--surface); border:1px solid var(--border);
+    border-radius:999px; padding:8px 14px; font-size:.84rem; white-space:nowrap; box-shadow:var(--shadow);
+  }
+  .summary-bar .chip b{ font-family:'Noto Serif Thai',serif; font-size:.98rem; }
+  .summary-bar .chip.s1{color:var(--s1);}
+  .summary-bar .chip.s2{color:var(--s2);}
+  .summary-bar .chip.s3{color:var(--s3);}
+  .summary-bar .chip.total{ background:var(--text); color:var(--bg); border-color:var(--text); }
+
+  /* ---------- Company info ---------- */
+  section.panel{ padding:28px 20px; border-bottom:1px solid var(--border); }
+  section.panel h2{ font-size:1.14rem; }
+  .company-grid{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+    gap:14px 18px; margin-top:14px;
+  }
+  .company-grid .field{ display:flex; flex-direction:column; gap:5px; }
+  .company-grid .field label{ font-size:.78rem; color:var(--muted); }
+  .company-grid .field input{
+    padding:8px 10px; border:1px solid var(--border); border-radius:7px;
+    background:var(--surface); color:var(--text); font:inherit; font-size:.88rem;
+  }
+  .company-grid .field input:focus{ outline:2px solid var(--focus); outline-offset:1px; }
+
+  /* ---------- Scope sections ---------- */
+  section.scope{ padding:30px 20px 8px; border-bottom:1px solid var(--border); }
+  section.scope .scope-head{
+    display:flex; align-items:baseline; justify-content:space-between;
+    gap:12px; flex-wrap:wrap; margin-bottom:4px;
+  }
+  section.scope .scope-head h2{ font-size:1.14rem; display:flex; align-items:center; gap:9px; }
+  .dot{width:11px; height:11px; border-radius:50%; display:inline-block; flex:0 0 auto;}
+  .dot.s1{background:var(--s1);}
+  .dot.s2{background:var(--s2);}
+  .dot.s3{background:var(--s3);}
+  .scope-total{ font-family:'Noto Serif Thai',serif; font-size:1.1rem; }
+  .scope-desc{ color:var(--muted); font-size:.85rem; max-width:680px; margin-bottom:14px;}
+
+  .table-scroll{ overflow-x:auto; border:1px solid var(--border); border-radius:10px; background:var(--surface); }
+  table{ width:100%; border-collapse:collapse; min-width:880px; font-size:.85rem; }
+  thead th{
+    text-align:left; font-weight:500; color:var(--muted); font-size:.74rem;
+    padding:9px 10px; border-bottom:1px solid var(--border); white-space:nowrap;
+  }
+  tbody td{ padding:8px 10px; border-bottom:1px solid var(--border); vertical-align:top; }
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:empty{ display:none; }
+
+  td.rm{ width:34px; padding-top:12px; text-align:center; }
+  button.row-remove{
+    background:none; border:1px solid var(--border); border-radius:6px;
+    width:26px; height:26px; line-height:1; cursor:pointer; color:var(--muted); font-size:.85rem;
+  }
+  button.row-remove:hover{ color:var(--warn); border-color:var(--warn); }
+
+  td.source-cell{ min-width:180px; }
+  input.f-text, input.f-num{
+    width:100%; min-width:100px; padding:6px 8px; border:1px solid var(--border);
+    border-radius:6px; background:var(--bg); color:var(--text); font:inherit; font-size:.85rem;
+  }
+  input.f-text:focus, input.f-num:focus{ outline:2px solid var(--focus); outline-offset:1px; }
+  input.f-note{ margin-top:6px; font-size:.78rem; color:var(--muted); }
+  .cite-stack{ display:flex; flex-direction:column; gap:6px; min-width:150px; }
+  td.result{ font-family:'Noto Serif Thai',serif; font-weight:600; text-align:right; white-space:nowrap; padding-top:12px; }
+
+  .empty-row{ padding:22px 10px; text-align:center; color:var(--muted); font-size:.85rem; }
+
+  .table-foot{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:10px 4px 20px; font-size:.82rem; color:var(--muted); gap:10px; flex-wrap:wrap;
+  }
+  button.add-row, button.clear-scope{
+    background:none; border:1px dashed var(--border); color:var(--muted);
+    padding:8px 14px; border-radius:8px; font:inherit; font-size:.82rem; cursor:pointer;
+  }
+  button.add-row:hover, button.clear-scope:hover{ color:var(--text); border-color:var(--text); }
+  button.clear-scope{ border-style:solid; }
+  button.clear-scope:hover{ color:var(--warn); border-color:var(--warn); }
+
+  /* ---------- Intensity ---------- */
+  .intensity-box{ display:flex; gap:24px; flex-wrap:wrap; align-items:flex-end; margin-top:14px; }
+  .intensity-result{
+    background:var(--surface); border:1px solid var(--border); border-radius:10px;
+    padding:14px 18px; box-shadow:var(--shadow);
+  }
+  .intensity-result .big{ font-family:'Noto Serif Thai',serif; font-size:1.4rem; }
+  .intensity-result .lbl{ color:var(--muted); font-size:.8rem; }
+
+  /* ---------- Hotspot / Pareto ---------- */
+  .stackbar{ display:flex; height:26px; border-radius:6px; overflow:hidden; border:1px solid var(--border); margin:16px 0 22px; background:var(--surface-2); }
+  .stackbar div{ height:100%; }
+  .legend{ display:flex; gap:18px; flex-wrap:wrap; font-size:.82rem; margin-bottom:22px; color:var(--muted); }
+  .legend span{ display:inline-flex; align-items:center; gap:6px; }
+  .pareto-row{ margin-bottom:10px; }
+  .pareto-row .row-top{ display:flex; justify-content:space-between; font-size:.82rem; margin-bottom:4px; gap:10px; }
+  .pareto-row .row-top .val{ color:var(--muted); white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .bar-track{ background:var(--surface-2); border-radius:5px; height:14px; overflow:hidden; }
+  .bar-fill{ height:100%; border-radius:5px 0 0 5px; }
+  .pareto-row.cum80 .bar-track{ box-shadow: inset 0 0 0 1px var(--warn); }
+  .pareto-empty{ color:var(--muted); font-size:.85rem; }
+  .pareto-note{ font-size:.78rem; color:var(--muted); margin-top:14px; }
+
+  footer{ padding:26px 20px 40px; font-size:.78rem; color:var(--muted); }
+  footer p{ margin:0 0 10px; max-width:700px; }
+  footer .src-tag{ font-weight:600; color:var(--text); }
+
+  @media (max-width:600px){
+    .wrap{padding-left:14px; padding-right:14px;}
+    header.page-head, section.scope, section.panel{ padding-left:14px; padding-right:14px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="page-head">
+  <div class="kicker">Workshop · Carbon Footprint for Organization (CFO) · ISO 14064-1</div>
+  <h1>เครื่องมือคำนวณ CFO — เริ่มจากศูนย์</h1>
+  <p class="sub">ไม่มีข้อมูลหรือค่า Emission Factor ใดถูกใส่มาให้ล่วงหน้า — นิสิตกรอกข้อมูลกิจกรรมและค่า EF ของตัวเองทั้งหมดจากการค้นคว้า พร้อมระบุแหล่งอ้างอิงและเวอร์ชัน/วันที่ประกาศของ EF ทุกค่า (ตามข้อกำหนด traceability ของ ISO 14064-1) เครื่องมือนี้รองรับหลาย Case Study พร้อมกัน และบันทึกงานอัตโนมัติไว้ในเบราว์เซอร์นี้</p>
+</header>
+
+<div class="case-bar">
+  <div class="case-bar-row">
+    <label for="caseSelect">Case Study:</label>
+    <select id="caseSelect"></select>
+    <button class="case-btn" id="btnNewCase" type="button">+ เพิ่ม Case Study</button>
+    <button class="case-btn" id="btnRenameCase" type="button">เปลี่ยนชื่อ</button>
+    <button class="case-btn danger" id="btnDeleteCase" type="button">ลบ Case Study นี้</button>
+  </div>
+  <p class="case-note">งานบันทึกอัตโนมัติในเบราว์เซอร์เครื่องนี้เท่านั้น (ไม่ซิงก์ข้ามอุปกรณ์/ไม่มีใครเห็นร่วมกัน) — ใช้ปุ่มด้านล่างเพื่อออกรายงานเป็นไฟล์ Excel ส่งอาจารย์</p>
+  <div class="export-row">
+    <button class="export-btn" id="btnExportCase" type="button">⬇ ออกรายงาน Excel (Case Study นี้)</button>
+    <button class="export-btn secondary" id="btnExportAll" type="button">⬇ ออกรายงาน Excel (ทุก Case Study)</button>
+  </div>
+</div>
+
+<div class="summary-bar" id="summaryBar">
+  <div class="chip s1">Scope 1 <b id="sumS1">0</b> tCO2e</div>
+  <div class="chip s2">Scope 2 <b id="sumS2">0</b> tCO2e</div>
+  <div class="chip s3">Scope 3 <b id="sumS3">0</b> tCO2e</div>
+  <div class="chip total">รวมทั้งหมด <b id="sumTotal">0</b> tCO2e</div>
+</div>
+
+<div class="wrap">
+
+  <!-- ================= COMPANY INFO ================= -->
+  <section class="panel">
+    <h2>ข้อมูลองค์กร (Organizational Boundary)</h2>
+    <div class="company-grid" id="companyGrid"></div>
+  </section>
+
+  <!-- ================= SCOPE 1 ================= -->
+  <section class="scope" data-scope-section="1">
+    <div class="scope-head">
+      <h2><span class="dot s1"></span>Scope 1 — การปล่อยทางตรง</h2>
+      <div class="scope-total" style="color:var(--s1)">รวม <span id="totalS1">0</span> tCO2e</div>
+    </div>
+    <p class="scope-desc">เชื้อเพลิงเผาไหม้อยู่กับที่ (stationary), เชื้อเพลิงยานพาหนะของบริษัท (mobile), สารทำความเย็นรั่วไหล ฯลฯ — เพิ่มแหล่งปล่อยของ Case Study นี้เอง</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr>
+          <th></th><th>แหล่งปล่อย / รายการ</th><th>ข้อมูลกิจกรรม</th><th>หน่วย</th>
+          <th>Emission Factor</th><th>หน่วย EF</th><th>แหล่งอ้างอิง / เวอร์ชัน</th><th>ปล่อย (tCO2e)</th>
+        </tr></thead>
+        <tbody id="tbodyS1" data-scope-body="1"></tbody>
+      </table>
+    </div>
+    <div class="table-foot">
+      <button class="add-row" data-add-scope="1" type="button">+ เพิ่มแหล่งปล่อย</button>
+      <button class="clear-scope" data-clear-scope="1" type="button">ลบทุกแถวใน Scope 1</button>
+    </div>
+  </section>
+
+  <!-- ================= SCOPE 2 ================= -->
+  <section class="scope" data-scope-section="2">
+    <div class="scope-head">
+      <h2><span class="dot s2"></span>Scope 2 — พลังงานที่ซื้อจากภายนอก</h2>
+      <div class="scope-total" style="color:var(--s2)">รวม <span id="totalS2">0</span> tCO2e</div>
+    </div>
+    <p class="scope-desc">ไฟฟ้า ไอน้ำ ความร้อน หรือความเย็นที่ซื้อใช้ — ใช้ Grid Emission Factor เวอร์ชันสำหรับรายงาน Scope 2 ขององค์กร (ไม่ใช่ค่า CFP ของผลิตภัณฑ์)</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr>
+          <th></th><th>แหล่งปล่อย / รายการ</th><th>ข้อมูลกิจกรรม</th><th>หน่วย</th>
+          <th>Emission Factor</th><th>หน่วย EF</th><th>แหล่งอ้างอิง / เวอร์ชัน</th><th>ปล่อย (tCO2e)</th>
+        </tr></thead>
+        <tbody id="tbodyS2" data-scope-body="2"></tbody>
+      </table>
+    </div>
+    <div class="table-foot">
+      <button class="add-row" data-add-scope="2" type="button">+ เพิ่มแหล่งปล่อย</button>
+      <button class="clear-scope" data-clear-scope="2" type="button">ลบทุกแถวใน Scope 2</button>
+    </div>
+  </section>
+
+  <!-- ================= SCOPE 3 ================= -->
+  <section class="scope" data-scope-section="3">
+    <div class="scope-head">
+      <h2><span class="dot s3"></span>Scope 3 — ทางอ้อมอื่น ๆ (Value chain)</h2>
+      <div class="scope-total" style="color:var(--s3)">รวม <span id="totalS3">0</span> tCO2e</div>
+    </div>
+    <p class="scope-desc">เลือกเฉพาะ category ที่มีนัยสำคัญของ Case Study นี้ (เช่น วัตถุดิบที่ซื้อเข้า, การขนส่ง, ของเสีย, การเดินทางเพื่อธุรกิจ, การเดินทางของพนักงาน)</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr>
+          <th></th><th>แหล่งปล่อย / รายการ</th><th>ข้อมูลกิจกรรม</th><th>หน่วย</th>
+          <th>Emission Factor</th><th>หน่วย EF</th><th>แหล่งอ้างอิง / เวอร์ชัน</th><th>ปล่อย (tCO2e)</th>
+        </tr></thead>
+        <tbody id="tbodyS3" data-scope-body="3"></tbody>
+      </table>
+    </div>
+    <div class="table-foot">
+      <button class="add-row" data-add-scope="3" type="button">+ เพิ่มแหล่งปล่อย</button>
+      <button class="clear-scope" data-clear-scope="3" type="button">ลบทุกแถวใน Scope 3</button>
+    </div>
+  </section>
+
+  <!-- ================= INTENSITY ================= -->
+  <section class="panel">
+    <h2>Emission Intensity เทียบต่อหน่วยผลผลิต</h2>
+    <div class="intensity-box">
+      <div class="intensity-result">
+        <div class="lbl">Emission Intensity (ใช้ "กำลังการผลิต" จากข้อมูลองค์กรด้านบน)</div>
+        <div class="big"><span id="intensityVal">0</span> tCO2e / หน่วยผลผลิต</div>
+      </div>
+    </div>
+    <p class="pareto-note">เทียบกับปีฐานที่ระบุไว้ด้านบน: ให้สร้าง Case Study ใหม่อีกชุดสำหรับปีฐาน กรอกข้อมูลกิจกรรมของปีฐาน แล้วเทียบ % การเปลี่ยนแปลงของผลรวมและ Emission Intensity ระหว่าง 2 Case Study เพื่อดู trend</p>
+  </section>
+
+  <!-- ================= HOTSPOT ================= -->
+  <section class="panel" id="hotspotSection">
+    <h2>วิเคราะห์ Hotspot (Pareto 80/20)</h2>
+    <p class="scope-desc">สัดส่วนการปล่อยตาม Scope และรายการที่ก่อให้เกิดการปล่อยสูงสุด เรียงจากมากไปน้อย เส้นขอบสีส้มคือจุดที่สะสมถึง ~80% ของการปล่อยทั้งหมด</p>
+    <div class="stackbar" id="stackbar"></div>
+    <div class="legend">
+      <span><span class="dot s1"></span>Scope 1</span>
+      <span><span class="dot s2"></span>Scope 2</span>
+      <span><span class="dot s3"></span>Scope 3</span>
+    </div>
+    <div id="paretoList"></div>
+  </section>
+
+  <footer>
+    <p><span class="src-tag">แนะนำแหล่งค้นคว้าค่า Emission Factor:</span> ฐานข้อมูล อบก. (TGO Emission Factor Database, tgo.or.th) สำหรับกรณีศึกษาในประเทศไทย หรือฐานข้อมูลของหน่วยงานที่เกี่ยวข้องในประเทศ/มาตรฐานที่ Case Study ของนิสิตอ้างอิงถึง</p>
+    <p>ตาม ISO 14064-1 องค์กรต้องระบุ "แหล่งอ้างอิง" และ "เวอร์ชัน/วันที่ประกาศ" ของค่า EF ที่ใช้ทุกค่าเพื่อการสอบกลับได้ (traceability) — กรอกช่อง "แหล่งอ้างอิง / เวอร์ชัน" ในทุกแถวให้ครบก่อนสรุปผล</p>
+  </footer>
+</div>
+
+<script>
+(function(){
+
+  const STORAGE_KEY = 'cfo_workshop_store_v1';
+  const NF  = n => (isFinite(n)?n:0).toLocaleString('en-US', {maximumFractionDigits:2});
+  const NF0 = n => (isFinite(n)?n:0).toLocaleString('en-US', {maximumFractionDigits:1});
+  const COLOR = {1:"var(--s1)", 2:"var(--s2)", 3:"var(--s3)"};
+
+  const COMPANY_FIELDS = [
+    { key:'name',        label:'ชื่อองค์กร',                          type:'text' },
+    { key:'business',    label:'ประเภทธุรกิจ',                        type:'text' },
+    { key:'location',    label:'ที่ตั้ง',                              type:'text' },
+    { key:'employees',   label:'จำนวนพนักงาน',                        type:'text' },
+    { key:'production',  label:'กำลังการผลิต (ต่อปี)',                type:'number' },
+    { key:'boundary',    label:'ขอบเขตองค์กร (Boundary)',             type:'text' },
+    { key:'baseYear',    label:'ปีฐาน (Base Year)',                   type:'text' },
+    { key:'reportPeriod',label:'รอบการรายงาน',                        type:'text' },
+  ];
+
+  let rowSeq = 1;
+  function newRow(){
+    return { id:'r'+(rowSeq++), src:'', note:'', act:'', actUnit:'', ef:'', efUnit:'', source:'', version:'' };
+  }
+  function newCase(name){
+    return {
+      name: name || 'Case Study',
+      company: { name:'', business:'', location:'', employees:'', production:'', boundary:'', baseYear:'', reportPeriod:'' },
+      rows: { 1:[], 2:[], 3:[] }
+    };
+  }
+
+  let store = null;
+
+  function load(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(raw){
+        const parsed = JSON.parse(raw);
+        if(parsed && parsed.cases && Object.keys(parsed.cases).length){
+          store = parsed;
+          return;
+        }
+      }
+    }catch(e){ /* ignore corrupt storage */ }
+    const id = 'cs'+Date.now();
+    store = { activeId:id, cases:{ } };
+    store.cases[id] = newCase('Case Study 1');
+  }
+  function persist(){
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(store)); }catch(e){ /* storage unavailable */ }
+  }
+  function getActiveCase(){ return store.cases[store.activeId]; }
+
+  // ---------------- Case selector ----------------
+  function renderCaseSelect(){
+    const sel = document.getElementById('caseSelect');
+    sel.innerHTML = '';
+    Object.keys(store.cases).forEach(id=>{
+      const opt = document.createElement('option');
+      opt.value = id;
+      opt.textContent = store.cases[id].name;
+      if(id === store.activeId) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  }
+  document.getElementById('caseSelect').addEventListener('change', e=>{
+    store.activeId = e.target.value;
+    persist();
+    renderAll();
+  });
+  document.getElementById('btnNewCase').addEventListener('click', ()=>{
+    const n = Object.keys(store.cases).length + 1;
+    const name = prompt('ตั้งชื่อ Case Study ใหม่:', 'Case Study '+n);
+    if(name === null) return;
+    const id = 'cs'+Date.now();
+    store.cases[id] = newCase(name.trim() || ('Case Study '+n));
+    store.activeId = id;
+    persist();
+    renderCaseSelect();
+    renderAll();
+  });
+  document.getElementById('btnRenameCase').addEventListener('click', ()=>{
+    const c = getActiveCase();
+    const name = prompt('เปลี่ยนชื่อ Case Study:', c.name);
+    if(name === null || !name.trim()) return;
+    c.name = name.trim();
+    persist();
+    renderCaseSelect();
+  });
+  document.getElementById('btnDeleteCase').addEventListener('click', ()=>{
+    const ids = Object.keys(store.cases);
+    if(ids.length <= 1){ alert('ต้องมี Case Study อย่างน้อย 1 รายการ'); return; }
+    const c = getActiveCase();
+    if(!confirm('ลบ "'+c.name+'" และข้อมูลทั้งหมดในนี้? การลบไม่สามารถย้อนกลับได้')) return;
+    delete store.cases[store.activeId];
+    store.activeId = Object.keys(store.cases)[0];
+    persist();
+    renderCaseSelect();
+    renderAll();
+  });
+
+  // ---------------- Company info ----------------
+  function renderCompany(){
+    const c = getActiveCase();
+    const grid = document.getElementById('companyGrid');
+    grid.innerHTML = '';
+    COMPANY_FIELDS.forEach(f=>{
+      const wrap = document.createElement('div');
+      wrap.className = 'field';
+      wrap.innerHTML = `<label for="cf-${f.key}">${f.label}</label>
+        <input id="cf-${f.key}" type="${f.type}" value="${c.company[f.key] ?? ''}">`;
+      const input = wrap.querySelector('input');
+      input.addEventListener('input', ()=>{
+        c.company[f.key] = input.value;
+        persist();
+        if(f.key === 'production') recalcAll();
+      });
+      grid.appendChild(wrap);
+    });
+  }
+
+  // ---------------- Scope tables ----------------
+  function buildRowEl(scope, row){
+    const tr = document.createElement('tr');
+    tr.dataset.scope = scope;
+    tr.dataset.rowId = row.id;
+    tr.innerHTML = `
+      <td class="rm"><button type="button" class="row-remove" title="ลบแถวนี้">×</button></td>
+      <td class="source-cell">
+        <input type="text" class="f-text f-src" placeholder="ชื่อแหล่งปล่อย / รายการ" value="${row.src}">
+        <input type="text" class="f-text f-note" placeholder="รายละเอียดเพิ่มเติม (ถ้ามี)" value="${row.note}">
+      </td>
+      <td><input type="number" class="f-num f-act" step="any" placeholder="ค่า" value="${row.act}"></td>
+      <td><input type="text" class="f-text f-actunit" placeholder="เช่น kg/ปี" value="${row.actUnit}"></td>
+      <td><input type="number" class="f-num f-ef" step="any" placeholder="ค่า" value="${row.ef}"></td>
+      <td><input type="text" class="f-text f-efunit" placeholder="เช่น kgCO2e/kg" value="${row.efUnit}"></td>
+      <td class="cite-stack">
+        <input type="text" class="f-text f-source" placeholder="ฐานข้อมูล/แหล่งอ้างอิง" value="${row.source}">
+        <input type="text" class="f-text f-version" placeholder="เวอร์ชัน/วันที่ประกาศ" value="${row.version}">
+      </td>
+      <td class="result"><span class="tco2e">0</span></td>
+    `;
+    return tr;
+  }
+
+  function renderScopeTable(scope){
+    const c = getActiveCase();
+    const tbody = document.getElementById('tbodyS'+scope);
+    tbody.innerHTML = '';
+    if(!c.rows[scope].length){
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td colspan="8" class="empty-row">ยังไม่มีแหล่งปล่อยใน Scope นี้ — กด "+ เพิ่มแหล่งปล่อย" เพื่อเริ่มกรอกข้อมูล</td>`;
+      tbody.appendChild(tr);
+      return;
+    }
+    c.rows[scope].forEach(row=> tbody.appendChild(buildRowEl(scope,row)));
+  }
+
+  function renderAllScopeTables(){ [1,2,3].forEach(renderScopeTable); }
+
+  const FIELD_MAP = {
+    'f-src':'src', 'f-note':'note', 'f-act':'act', 'f-actunit':'actUnit',
+    'f-ef':'ef', 'f-efunit':'efUnit', 'f-source':'source', 'f-version':'version'
+  };
+
+  document.querySelectorAll('tbody[data-scope-body]').forEach(tbody=>{
+    tbody.addEventListener('input', e=>{
+      const input = e.target;
+      const tr = input.closest('tr');
+      if(!tr || !tr.dataset.rowId) return;
+      const scope = tr.dataset.scope;
+      const rowId = tr.dataset.rowId;
+      const row = getActiveCase().rows[scope].find(r=> r.id === rowId);
+      if(!row) return;
+      for(const cls in FIELD_MAP){
+        if(input.classList.contains(cls)){ row[FIELD_MAP[cls]] = input.value; break; }
+      }
+      recalcAll();
+    });
+    tbody.addEventListener('click', e=>{
+      if(!e.target.classList.contains('row-remove')) return;
+      const tr = e.target.closest('tr');
+      const scope = tr.dataset.scope;
+      const rowId = tr.dataset.rowId;
+      const c = getActiveCase();
+      c.rows[scope] = c.rows[scope].filter(r=> r.id !== rowId);
+      renderScopeTable(scope);
+      recalcAll();
+    });
+  });
+
+  document.querySelectorAll('button[data-add-scope]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const scope = btn.dataset.addScope;
+      getActiveCase().rows[scope].push(newRow());
+      renderScopeTable(scope);
+      persist();
+    });
+  });
+  document.querySelectorAll('button[data-clear-scope]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const scope = btn.dataset.clearScope;
+      if(!getActiveCase().rows[scope].length) return;
+      if(!confirm('ลบทุกแถวใน Scope '+scope+' ของ Case Study นี้?')) return;
+      getActiveCase().rows[scope] = [];
+      renderScopeTable(scope);
+      recalcAll();
+    });
+  });
+
+  // ---------------- Totals / intensity / hotspot ----------------
+  function recalcAll(){
+    const c = getActiveCase();
+    const totals = {1:0,2:0,3:0};
+    const items = [];
+
+    [1,2,3].forEach(scope=>{
+      c.rows[scope].forEach(row=>{
+        const act = parseFloat(row.act) || 0;
+        const ef  = parseFloat(row.ef)  || 0;
+        const t = (act*ef)/1000;
+        totals[scope] += t;
+        const tr = document.querySelector('tbody[data-scope-body="'+scope+'"] tr[data-row-id="'+row.id+'"]');
+        if(tr){ tr.querySelector('.tco2e').textContent = NF(t); }
+        items.push({ scope, label: row.src && row.src.trim() ? row.src.trim() : '(ยังไม่ตั้งชื่อแหล่งปล่อย)', t });
+      });
+    });
+
+    document.getElementById('totalS1').textContent = NF(totals[1]);
+    document.getElementById('totalS2').textContent = NF(totals[2]);
+    document.getElementById('totalS3').textContent = NF(totals[3]);
+    document.getElementById('sumS1').textContent = NF0(totals[1]);
+    document.getElementById('sumS2').textContent = NF0(totals[2]);
+    document.getElementById('sumS3').textContent = NF0(totals[3]);
+    const grand = totals[1]+totals[2]+totals[3];
+    document.getElementById('sumTotal').textContent = NF0(grand);
+
+    const production = parseFloat(c.company.production) || 0;
+    document.getElementById('intensityVal').textContent = production>0 ? NF(grand/production) : '—';
+
+    const stack = document.getElementById('stackbar');
+    stack.innerHTML = '';
+    [1,2,3].forEach(s=>{
+      const pct = grand>0 ? (totals[s]/grand*100) : 0;
+      if(pct<=0) return;
+      const d = document.createElement('div');
+      d.style.width = pct+'%';
+      d.style.background = COLOR[s];
+      d.title = 'Scope '+s+': '+NF0(pct)+'%';
+      stack.appendChild(d);
+    });
+
+    items.sort((a,b)=> b.t - a.t);
+    const list = document.getElementById('paretoList');
+    list.innerHTML = '';
+    if(!items.length || grand<=0){
+      list.innerHTML = '<p class="pareto-empty">ยังไม่มีข้อมูลให้วิเคราะห์ — เพิ่มแหล่งปล่อยและกรอกค่าในตาราง Scope ด้านบนก่อน</p>';
+    } else {
+      let cum = 0;
+      const max = items[0].t;
+      items.forEach(it=>{
+        cum += it.t;
+        const cumPct = (cum/grand*100);
+        const widthPct = max>0 ? (it.t/max*100) : 0;
+        const row = document.createElement('div');
+        row.className = 'pareto-row' + (cumPct<=80 ? ' cum80' : '');
+        row.innerHTML = `
+          <div class="row-top">
+            <span class="name">${it.label}</span>
+            <span class="val">${NF(it.t)} tCO2e · สะสม ${NF0(cumPct)}%</span>
+          </div>
+          <div class="bar-track"><div class="bar-fill" style="width:${widthPct}%; background:${COLOR[it.scope]}"></div></div>
+        `;
+        list.appendChild(row);
+      });
+    }
+
+    persist();
+  }
+
+  function renderAll(){
+    renderCompany();
+    renderAllScopeTables();
+    recalcAll();
+  }
+
+  // ---------------- Excel export ----------------
+  function sumScope(rows){
+    return rows.reduce((s,r)=> s + ((parseFloat(r.act)||0) * (parseFloat(r.ef)||0)) / 1000, 0);
+  }
+
+  function companyAOA(c){
+    return [
+      ['ข้อมูลองค์กร (Organizational Boundary)'],
+      [],
+      ['ชื่อองค์กร', c.company.name || ''],
+      ['ประเภทธุรกิจ', c.company.business || ''],
+      ['ที่ตั้ง', c.company.location || ''],
+      ['จำนวนพนักงาน', c.company.employees || ''],
+      ['กำลังการผลิต (ต่อปี)', c.company.production || ''],
+      ['ขอบเขตองค์กร (Boundary)', c.company.boundary || ''],
+      ['ปีฐาน (Base Year)', c.company.baseYear || ''],
+      ['รอบการรายงาน', c.company.reportPeriod || ''],
+    ];
+  }
+
+  function scopeAOA(rows, scopeLabel){
+    const header = ['แหล่งปล่อย/รายการ','รายละเอียด','ข้อมูลกิจกรรม','หน่วย','Emission Factor','หน่วย EF','แหล่งอ้างอิง','เวอร์ชัน/วันที่ประกาศ','ปล่อย (tCO2e)'];
+    const body = rows.map(r=>{
+      const act = parseFloat(r.act) || 0, ef = parseFloat(r.ef) || 0;
+      const t = (act*ef)/1000;
+      return [r.src||'', r.note||'', act, r.actUnit||'', ef, r.efUnit||'', r.source||'', r.version||'', Number(t.toFixed(4))];
+    });
+    const total = Number(body.reduce((s,row)=> s+row[8], 0).toFixed(4));
+    return [header, ...body, [], ['','','','','','','','รวม '+scopeLabel, total]];
+  }
+
+  function summaryAOA(c){
+    const t1 = sumScope(c.rows[1]), t2 = sumScope(c.rows[2]), t3 = sumScope(c.rows[3]);
+    const grand = t1+t2+t3;
+    const production = parseFloat(c.company.production) || 0;
+    const intensity = production>0 ? grand/production : '';
+
+    const items = [];
+    [1,2,3].forEach(scope=> c.rows[scope].forEach(r=>{
+      const act = parseFloat(r.act)||0, ef = parseFloat(r.ef)||0;
+      items.push({ scope, label: (r.src && r.src.trim()) || '(ยังไม่ตั้งชื่อแหล่งปล่อย)', t: (act*ef)/1000 });
+    }));
+    items.sort((a,b)=> b.t - a.t);
+    let cum = 0;
+    const hotspotRows = items.map((it,idx)=>{
+      cum += it.t;
+      return [
+        idx+1, it.label, 'Scope '+it.scope,
+        Number(it.t.toFixed(4)),
+        grand>0 ? Number((it.t/grand*100).toFixed(1)) : 0,
+        grand>0 ? Number((cum/grand*100).toFixed(1)) : 0
+      ];
+    });
+
+    return [
+      ['สรุปผล CFO'],
+      [],
+      ['Scope 1 (tCO2e)', Number(t1.toFixed(4))],
+      ['Scope 2 (tCO2e)', Number(t2.toFixed(4))],
+      ['Scope 3 (tCO2e)', Number(t3.toFixed(4))],
+      ['รวมทั้งหมด (tCO2e)', Number(grand.toFixed(4))],
+      ['กำลังการผลิต', production || ''],
+      ['Emission Intensity (tCO2e / หน่วยผลผลิต)', intensity === '' ? '' : Number(intensity.toFixed(4))],
+      [],
+      ['Hotspot analysis (เรียงจากมากไปน้อย)'],
+      ['อันดับ','แหล่งปล่อย/รายการ','Scope','tCO2e','% ของรวม','% สะสม'],
+      ...hotspotRows
+    ];
+  }
+
+  function buildCaseWorkbook(c){
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(companyAOA(c)), 'ข้อมูลองค์กร');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(scopeAOA(c.rows[1], 'Scope 1')), 'Scope 1');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(scopeAOA(c.rows[2], 'Scope 2')), 'Scope 2');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(scopeAOA(c.rows[3], 'Scope 3')), 'Scope 3');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryAOA(c)), 'สรุปผล');
+    return wb;
+  }
+
+  function safeSheetName(raw, used){
+    let name = String(raw).replace(/[:\\\/\?\*\[\]]/g, ' ').replace(/\s+/g,' ').trim();
+    if(!name) name = 'Sheet';
+    name = name.slice(0, 31);
+    let candidate = name, i = 1;
+    while(used.has(candidate)){
+      const suffix = '_' + (i++);
+      candidate = name.slice(0, 31 - suffix.length) + suffix;
+    }
+    used.add(candidate);
+    return candidate;
+  }
+
+  function sanitizeFilename(name){
+    const cleaned = String(name||'CFO').replace(/[\\\/:\*\?"<>\|]/g, '_').trim();
+    return (cleaned || 'CFO').slice(0, 80);
+  }
+
+  async function saveWorkbook(wb, filename){
+    // Plain browser download (works standalone: GitHub Pages, local file, any static host).
+    const wbout = XLSX.write(wb, { bookType:'xlsx', type:'array' });
+    const blob = new Blob([wbout], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(()=> URL.revokeObjectURL(url), 2000);
+  }
+
+  async function withBusyLabel(btn, busyText, fn){
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = busyText;
+    try{ await fn(); }
+    finally{ btn.disabled = false; btn.textContent = original; }
+  }
+
+  document.getElementById('btnExportCase').addEventListener('click', function(){
+    withBusyLabel(this, 'กำลังสร้างไฟล์…', async ()=>{
+      const c = getActiveCase();
+      const wb = buildCaseWorkbook(c);
+      await saveWorkbook(wb, sanitizeFilename(c.name) + '_CFO_report.xlsx');
+    });
+  });
+
+  document.getElementById('btnExportAll').addEventListener('click', function(){
+    withBusyLabel(this, 'กำลังสร้างไฟล์…', async ()=>{
+      const wb = XLSX.utils.book_new();
+      const used = new Set();
+      Object.values(store.cases).forEach((c, idx)=>{
+        const base = (idx+1) + '-' + (c.name || 'Case');
+        const mk = suffix => safeSheetName(base + '-' + suffix, used);
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(companyAOA(c)), mk('Info'));
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(scopeAOA(c.rows[1], 'Scope 1')), mk('S1'));
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(scopeAOA(c.rows[2], 'Scope 2')), mk('S2'));
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(scopeAOA(c.rows[3], 'Scope 3')), mk('S3'));
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryAOA(c)), mk('Summary'));
+      });
+      await saveWorkbook(wb, 'CFO_all_case_studies.xlsx');
+    });
+  });
+
+  load();
+  renderCaseSelect();
+  renderAll();
+})();
+</script>
+</body>
+</html>
